@@ -3,7 +3,7 @@ import random
 from rsoccer_gym.Utils.Utils import OrnsteinUhlenbeckAction
 from typing import Dict
 
-import gym
+import gymnasium as gym
 import numpy as np
 from rsoccer_gym.Entities import Frame, Robot, Ball
 from rsoccer_gym.vss.vss_gym_base import VSSBaseEnv
@@ -51,9 +51,9 @@ class VSSEnv(VSSBaseEnv):
             5 minutes match time
     """
 
-    def __init__(self, use_fira=False):
+    def __init__(self, use_fira=False, render_mode=None):
         super().__init__(field_type=0, n_robots_blue=3, n_robots_yellow=3,
-                         time_step=0.025, use_fira=use_fira)
+                         time_step=0.025, use_fira=use_fira, render_mode=render_mode)
 
         self.action_space = gym.spaces.Box(low=-1, high=1,
                                            shape=(2, ), dtype=np.float32)
@@ -75,18 +75,18 @@ class VSSEnv(VSSBaseEnv):
 
         print('Environment initialized')
 
-    def reset(self):
+    def reset(self, seed=None, options=None):
         self.actions = None
         self.reward_shaping_total = None
         self.previous_ball_potential = None
         for ou in self.ou_actions:
             ou.reset()
 
-        return super().reset()
+        return super().reset(seed=seed, options=options)
 
     def step(self, action):
-        observation, reward, done, _ = super().step(action)
-        return observation, reward, done, self.reward_shaping_total
+        observation, reward, terminated, truncated, _ = super().step(action)
+        return observation, reward, terminated, truncated, self.reward_shaping_total
 
     def _frame_to_observations(self):
 

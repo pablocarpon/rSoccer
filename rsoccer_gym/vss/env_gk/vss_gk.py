@@ -3,7 +3,7 @@ import os
 import random
 import time
 
-import gym
+import gymnasium as gym
 import numpy as np
 import torch
 from rsoccer_gym.Entities import Frame, Robot
@@ -83,9 +83,9 @@ class rSimVSSGK(VSSBaseEnv):
     atk_target_x = 0
     atk_target_y = 0
 
-    def __init__(self):
+    def __init__(self, render_mode=None):
         super().__init__(field_type=0, n_robots_blue=3, n_robots_yellow=3,
-                         time_step=0.025)
+                         time_step=0.025, render_mode=render_mode)
 
         self.action_space = gym.spaces.Box(
             low=-1, high=1, shape=(2, ), dtype=np.float32)
@@ -106,8 +106,8 @@ class rSimVSSGK(VSSBaseEnv):
         print('Environment initialized')
     
     def step(self, action):
-        observation, reward, done, _ = super().step(action)
-        return observation, reward, done, self.reward_shaping_total
+        observation, reward, terminated, truncated, _ = super().step(action)
+        return observation, reward, terminated, truncated, self.reward_shaping_total
 
     def load_atk(self):
         device = torch.device('cuda')

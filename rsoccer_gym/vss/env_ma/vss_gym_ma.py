@@ -3,7 +3,7 @@ import os
 import random
 from typing import Dict
 
-import gym
+import gymnasium as gym
 import numpy as np
 import torch
 from rsoccer_gym.Entities import Frame, Robot, Ball
@@ -58,9 +58,9 @@ class VSSMAEnv(VSSBaseEnv):
             5 minutes match time
     """
 
-    def __init__(self, n_robots_control=3):
+    def __init__(self, n_robots_control=3, render_mode=None):
         super().__init__(field_type=0, n_robots_blue=3, n_robots_yellow=3,
-                         time_step=0.025)
+                         time_step=0.025, render_mode=render_mode)
 
         self.n_robots_control = n_robots_control
         self.action_space = gym.spaces.Box(low=-1,
@@ -85,18 +85,18 @@ class VSSMAEnv(VSSBaseEnv):
 
         print('Environment initialized')
 
-    def reset(self):
+    def reset(self, seed=None, options=None):
         self.actions = None
         self.reward_shaping_total = None
         self.previous_ball_potential = None
         for ou in self.ou_actions:
             ou.reset()
 
-        return super().reset()
+        return super().reset(seed=seed, options=options)
 
     def step(self, action):
-        observation, reward, done, _ = super().step(action)
-        return observation, reward, done, self.reward_shaping_total
+        observation, reward, terminated, truncated, _ = super().step(action)
+        return observation, reward, terminated, truncated, self.reward_shaping_total
 
     def get_rotated_obs(self):
         robots_dict = dict()

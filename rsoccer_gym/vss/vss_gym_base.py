@@ -8,7 +8,7 @@
 import time
 from typing import Dict, List, Optional
 
-import gym
+import gymnasium as gym
 import numpy as np
 from rsoccer_gym.Entities import Frame, Robot
 from rsoccer_gym.Simulators.rsim import RSimVSS
@@ -17,9 +17,10 @@ from rsoccer_gym.Simulators.fira import Fira
 
 class VSSBaseEnv(gym.Env):
     metadata = {
-        "render.modes": ["human", "rgb_array"],
+        "render_modes": ["human", "rgb_array"],
     }
     NORM_BOUNDS = 1.2
+    MAX_EPISODE_STEPS = 1200
 
     def __init__(
         self,
@@ -28,6 +29,7 @@ class VSSBaseEnv(gym.Env):
         n_robots_yellow: int,
         time_step: float,
         use_fira: bool = False,
+        render_mode = None
     ):
         # Initialize Simulator
         self.time_step = time_step
@@ -64,6 +66,10 @@ class VSSBaseEnv(gym.Env):
         self.steps = 0
         self.sent_commands = None
 
+        # Manage render modes
+        assert render_mode is None or render_mode in self.metadata["render_modes"]
+        self.render_mode = render_mode
+
     def step(self, action):
         self.steps += 1
         # Join agent action with environment actions
@@ -76,13 +82,23 @@ class VSSBaseEnv(gym.Env):
         self.last_frame = self.frame
         self.frame = self.rsim.get_frame()
 
-        # Calculate environment observation, reward and done condition
+        # Calculate environment observation, reward, terminated and truncated condition
         observation = self._frame_to_observations()
-        reward, done = self._calculate_reward_and_done()
+        reward, terminated = self._calculate_reward_and_done()
+        truncated = False
+        if self.steps >= self.MAX_EPISODE_STEPS: 
+            truncated = True
 
-        return observation, reward, done, {}
+        # Call render method
+        if self.render_mode is not None:
+            self.render()
 
-    def reset(self):
+        return observation, reward, terminated, truncated, {}
+
+    def reset(self, seed=None, options=None):
+        # Seed the random number generator
+        super().reset(seed=seed)
+
         self.steps = 0
         self.last_frame = None
         self.sent_commands = None
@@ -97,9 +113,13 @@ class VSSBaseEnv(gym.Env):
         # Get frame from simulator
         self.frame = self.rsim.get_frame()
 
-        return self._frame_to_observations()
+        # Call render method
+        if self.render_mode is not None:
+            self.render()
 
-    def render(self, mode="human") -> None:
+        return self._frame_to_observations(), {}
+
+    def render(self) -> None:
         """
         Renders the game depending on
         ball's and players' positions.
@@ -117,13 +137,14 @@ class VSSBaseEnv(gym.Env):
             from rsoccer_gym.Render import RCGymRender
 
             self.view = RCGymRender(
-                self.n_robots_blue, self.n_robots_yellow, self.field, simulator="vss"
+                self.n_robots_blue, self.n_robots_yellow, self.field, render_mode=self.render_mode, simulator="vss"
             )
 
-        return self.view.render_frame(self.frame, return_rgb_array=mode == "rgb_array")
+        return self.view.render_frame(self.frame)
 
     def close(self):
         self.rsim.stop()
+        del self.view
 
     def _get_commands(self, action):
         """returns a list of commands of type List[Robot] from type action_space action"""
