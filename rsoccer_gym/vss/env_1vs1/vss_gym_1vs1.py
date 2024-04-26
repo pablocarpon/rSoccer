@@ -30,7 +30,7 @@ class VSS1vs1Env(VSSBaseEnv):
         self.observation_space = gym.spaces.Box(
             low=-self.NORM_BOUNDS,
             high=self.NORM_BOUNDS,
-            shape=(40,),
+            shape=(16,),
             dtype=np.float32
         )
 
