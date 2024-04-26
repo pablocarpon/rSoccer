@@ -20,3 +20,7 @@ register(id='VSSFIRA-v0',
          entry_point='rsoccer_gym.vss.env_vss:VSSEnv',
          kwargs={'use_fira': True},
          )
+
+register(id='VSS1vs1-v0',
+         entry_point='rsoccer_gym.vss.env_1vs1:VSS1vs1Env',
+        )

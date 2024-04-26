@@ -1,0 +1,1 @@
+from rsoccer_gym.vss.env_1vs1.vss_gym_1vs1 import VSS1vs1Env
