@@ -87,9 +87,6 @@ class RCGymRender:
 
 
     def __del__(self):
-        if self.screen is not None:
-            pygame.display.quit()
-            pygame.quit()
         self.clock = None
 
 
