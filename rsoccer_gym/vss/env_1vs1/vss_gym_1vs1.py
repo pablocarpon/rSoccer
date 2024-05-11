@@ -1,7 +1,9 @@
 import math
+import os
 import random
 from rsoccer_gym.Utils.Utils import OrnsteinUhlenbeckAction
 from typing import Dict
+from stable_baselines3 import DDPG
 
 import gymnasium as gym
 import numpy as np
@@ -10,7 +12,7 @@ from rsoccer_gym.vss.vss_gym_base import VSSBaseEnv
 from rsoccer_gym.Utils import KDTree
 
 class VSS1vs1Env(VSSBaseEnv):
-    def __init__(self, render_mode=None):
+    def __init__(self, render_mode=None, yellow_policy_path=None):
         super().__init__(
             field_type=0,
             n_robots_blue=1,
@@ -39,6 +41,12 @@ class VSS1vs1Env(VSSBaseEnv):
         self.actions: Dict = None
         self.reward_shaping_total = None
         self.v_wheel_deadzone = 0.05
+        self.yellow_policy = None
+
+        # Initialice rival(yellow robot) model if it is required
+        if yellow_policy_path is not None:
+            assert os.path.exists(yellow_policy_path), "Rival pre-trained policy file doesn't exist"
+            self.yellow_policy = DDPG.load(yellow_policy_path)
 
         # Initialice random actions sampler for each robot
         self.ou_actions = []
@@ -63,6 +71,38 @@ class VSS1vs1Env(VSSBaseEnv):
     def step(self, action):
         observation, reward, terminated, truncated, _ = super().step(action)
         return observation, reward, terminated, truncated, self.reward_shaping_total
+    
+
+    def _yellow_robot_observations(self):
+        observation = []
+        observation.append(self.norm_pos(-self.frame.ball.x))
+        observation.append(self.norm_pos(self.frame.ball.y))
+        observation.append(self.norm_v(-self.frame.ball.v_x))
+        observation.append(self.norm_v(self.frame.ball.v_y))
+        
+        #  we reflect the side that the attacker is attacking,
+        #  so that he will attack towards the goal where the goalkeeper is
+        for i in range(self.n_robots_yellow):
+            observation.append(self.norm_pos(-self.frame.robots_yellow[i].x))
+            observation.append(self.norm_pos(self.frame.robots_yellow[i].y))
+            observation.append(
+                np.sin(np.deg2rad(self.frame.robots_yellow[i].theta))
+            )
+            observation.append(
+                -np.cos(np.deg2rad(self.frame.robots_yellow[i].theta))
+            )
+            observation.append(self.norm_v(-self.frame.robots_yellow[i].v_x))
+            observation.append(self.norm_v(self.frame.robots_yellow[i].v_y))
+            observation.append(self.norm_w(self.frame.robots_yellow[i].v_theta))
+
+        for i in range(self.n_robots_blue):
+            observation.append(self.norm_pos(-self.frame.robots_blue[i].x))
+            observation.append(self.norm_pos(self.frame.robots_blue[i].y))
+            observation.append(self.norm_v(-self.frame.robots_blue[i].v_x))
+            observation.append(self.norm_v(self.frame.robots_blue[i].v_y))
+            observation.append(self.norm_w(self.frame.robots_blue[i].v_theta))
+
+        return np.array(observation)
     
 
     def _frame_to_observations(self):
@@ -102,21 +142,31 @@ class VSS1vs1Env(VSSBaseEnv):
         commands = []
         self.actions = {}
 
+        # Send to robot blue action taken by the agent that is being trained
         self.actions[0] = actions
         v_wheel0, v_wheel1 = self._actions_to_v_wheels(actions)
-        commands.append(Robot(yellow=False, id=0, v_wheel0=v_wheel0,
-                              v_wheel1=v_wheel1))
+        commands.append(Robot(
+            yellow=False, 
+            id=0, 
+            v_wheel0=v_wheel0, 
+            v_wheel1=v_wheel1
+        ))
 
-        # Send random commands to the other robots
-        for i in range(self.n_robots_yellow):
-            actions = self.ou_actions[self.n_robots_blue+i].sample()
-            v_wheel0, v_wheel1 = self._actions_to_v_wheels(actions)
-            commands.append(Robot(
-                yellow=True, 
-                id=i, 
-                v_wheel0=v_wheel0, 
-                v_wheel1=v_wheel1
-                ))
+        # If model of rival is loaded, it choose robot yellow action
+        # If model is not loaded, robot yellow choose random actions
+        if self.yellow_policy is not None:
+            yellow_observations = self._yellow_robot_observations()
+            actions, _ = self.yellow_policy.predict(yellow_observations)
+        elif self.yellow_policy is None:
+            actions = self.ou_actions[1].sample()
+
+        v_wheel0, v_wheel1 = self._actions_to_v_wheels(actions)
+        commands.append(Robot(
+            yellow=True, 
+            id=0, 
+            v_wheel0=v_wheel0, 
+            v_wheel1=v_wheel1
+        ))
 
         return commands
     
