@@ -93,16 +93,16 @@ class VSS1vs1Env(VSSBaseEnv):
             )
             observation.append(self.norm_v(-self.frame.robots_yellow[i].v_x))
             observation.append(self.norm_v(self.frame.robots_yellow[i].v_y))
-            observation.append(self.norm_w(self.frame.robots_yellow[i].v_theta))
+            observation.append(self.norm_w(-self.frame.robots_yellow[i].v_theta))
 
         for i in range(self.n_robots_blue):
             observation.append(self.norm_pos(-self.frame.robots_blue[i].x))
             observation.append(self.norm_pos(self.frame.robots_blue[i].y))
             observation.append(self.norm_v(-self.frame.robots_blue[i].v_x))
             observation.append(self.norm_v(self.frame.robots_blue[i].v_y))
-            observation.append(self.norm_w(self.frame.robots_blue[i].v_theta))
+            observation.append(self.norm_w(-self.frame.robots_blue[i].v_theta))
 
-        return np.array(observation)
+        return np.array(observation, dtype=np.float32)
     
 
     def _frame_to_observations(self):
@@ -160,7 +160,7 @@ class VSS1vs1Env(VSSBaseEnv):
         elif self.yellow_policy is None:
             actions = self.ou_actions[1].sample()
 
-        v_wheel0, v_wheel1 = self._actions_to_v_wheels(actions)
+        v_wheel1, v_wheel0 = self._actions_to_v_wheels(actions)
         commands.append(Robot(
             yellow=True, 
             id=0, 
